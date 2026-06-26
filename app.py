@@ -4,20 +4,18 @@ import sqlite3
 from PIL import Image, ImageDraw
 import os
 from dotenv import load_dotenv
-import os
-
 
 
 # ================= DATABASE =================
 
 load_dotenv()
-DB_URL = os.getenv("DB_URL")
 
 
 def get_conn():
-    conn = sqlite3.connect("employees.db", check_same_thread=False)
-    return conn
-
+    return sqlite3.connect(
+        "employees.db",
+        check_same_thread=False
+    )
 
 
 def init_db():
@@ -27,11 +25,13 @@ def init_db():
 
     cur.execute("""
     CREATE TABLE IF NOT EXISTS employees(
+
         emp_id TEXT PRIMARY KEY,
         name TEXT,
         designation TEXT,
         role TEXT,
         email TEXT
+
     )
     """)
 
@@ -43,27 +43,45 @@ def init_db():
 # ================= DATABASE FUNCTIONS =================
 
 
-def add_employee(emp_id, name, designation, role, email):
+def add_employee(
+        emp_id,
+        name,
+        designation,
+        role,
+        email
+):
 
     conn = get_conn()
     cur = conn.cursor()
 
-    cur.execute("""
-    INSERT INTO employees
-    (emp_id,name,designation,role,email)
 
-    VALUES(%s,%s,%s,%s,%s)
+    # SQLite compatible UPSERT
+
+    cur.execute("""
+
+    INSERT INTO employees
+    (
+        emp_id,
+        name,
+        designation,
+        role,
+        email
+    )
+
+    VALUES
+    (?, ?, ?, ?, ?)
 
     ON CONFLICT(emp_id)
 
     DO UPDATE SET
 
-    name=EXCLUDED.name,
-    designation=EXCLUDED.designation,
-    role=EXCLUDED.role,
-    email=EXCLUDED.email
+        name = excluded.name,
+        designation = excluded.designation,
+        role = excluded.role,
+        email = excluded.email
 
     """,
+
     (
         emp_id,
         name,
@@ -71,6 +89,7 @@ def add_employee(emp_id, name, designation, role, email):
         role,
         email
     ))
+
 
     conn.commit()
     conn.close()
@@ -82,7 +101,11 @@ def get_employees():
     conn = get_conn()
 
     df = pd.read_sql(
-        "SELECT * FROM employees ORDER BY emp_id",
+        """
+        SELECT *
+        FROM employees
+        ORDER BY emp_id
+        """,
         conn
     )
 
@@ -97,18 +120,28 @@ def get_employee(emp_id):
     conn = get_conn()
 
     df = pd.read_sql(
+
         """
         SELECT *
         FROM employees
-        WHERE emp_id=%s
+        WHERE emp_id = ?
         """,
+
         conn,
+
         params=(emp_id,)
+
     )
+
 
     conn.close()
 
-    return df.iloc[0]
+
+    if len(df) > 0:
+        return df.iloc[0]
+
+    return None
+
 
 
 
@@ -118,15 +151,21 @@ def delete_employee(emp_id):
 
     cur = conn.cursor()
 
+
     cur.execute(
+
         """
         DELETE FROM employees
-        WHERE emp_id=%s
+        WHERE emp_id = ?
         """,
+
         (emp_id,)
+
     )
 
+
     conn.commit()
+
     conn.close()
 
 
@@ -141,6 +180,7 @@ def create_greeting(
         role
 ):
 
+
     boss = Image.open(
         boss_image
     ).convert("RGB")
@@ -151,12 +191,11 @@ def create_greeting(
     ).convert("RGB")
 
 
-    photo_size = (250,300)
+    size = (250,300)
 
+    boss.thumbnail(size)
 
-    boss.thumbnail(photo_size)
-
-    employee.thumbnail(photo_size)
+    employee.thumbnail(size)
 
 
 
@@ -179,9 +218,7 @@ def create_greeting(
     )
 
 
-    draw = ImageDraw.Draw(
-        canvas
-    )
+    draw = ImageDraw.Draw(canvas)
 
 
     message = f"""
@@ -190,6 +227,7 @@ Congratulations {name}
 
 
 Your contribution in {role}
+
 is highly appreciated.
 
 
@@ -205,9 +243,7 @@ Thank you for your dedication.
     )
 
 
-    filename = (
-        f"{name}_greeting.png"
-    )
+    filename = f"{name}_greeting.png"
 
 
     canvas.save(filename)
@@ -230,11 +266,14 @@ st.title(
 
 
 menu = st.sidebar.selectbox(
+
     "Menu",
+
     [
         "Admin Panel",
         "User Greeting"
     ]
+
 )
 
 
@@ -247,11 +286,6 @@ if menu == "Admin Panel":
 
     st.header(
         "Admin Employee Management"
-    )
-
-
-    st.subheader(
-        "Create / Update Employee"
     )
 
 
@@ -287,26 +321,23 @@ if menu == "Admin Panel":
 
 
         add_employee(
+
             emp_id,
             name,
             designation,
             role,
             email
+
         )
 
 
         st.success(
-            "Employee saved"
+            "Employee saved successfully"
         )
 
 
 
     st.divider()
-
-
-    st.subheader(
-        "Employee Database"
-    )
 
 
     df = get_employees()
@@ -316,23 +347,19 @@ if menu == "Admin Panel":
 
 
 
-    if len(df) > 0:
-
-
-        st.subheader(
-            "Delete Employee"
-        )
+    if len(df)>0:
 
 
         delete_id = st.selectbox(
-            "Select Employee",
+
+            "Select Employee to Delete",
+
             df["emp_id"]
+
         )
 
 
-        if st.button(
-            "Delete"
-        ):
+        if st.button("Delete"):
 
 
             delete_employee(
@@ -363,6 +390,7 @@ if menu == "User Greeting":
 
     if len(df)==0:
 
+
         st.warning(
             "No employee data available"
         )
@@ -372,8 +400,11 @@ if menu == "User Greeting":
 
 
         selected_id = st.selectbox(
-            "Select Employee ID",
+
+            "Select Employee",
+
             df["emp_id"]
+
         )
 
 
@@ -389,26 +420,8 @@ if menu == "User Greeting":
 
 
         st.write(
-            "Designation:",
-            emp["designation"]
-        )
-
-
-        st.write(
             "Role:",
             emp["role"]
-        )
-
-
-        st.write(
-            "Email:",
-            emp["email"]
-        )
-
-
-
-        st.subheader(
-            "Employee Photo"
         )
 
 
@@ -418,14 +431,16 @@ if menu == "User Greeting":
 
 
         upload = st.file_uploader(
+
             "Upload Photo",
+
             type=[
                 "jpg",
                 "jpeg",
                 "png"
             ]
-        )
 
+        )
 
 
         photo = camera if camera else upload
@@ -440,9 +455,8 @@ if menu == "User Greeting":
             ):
 
 
-                boss_photo = (
-                    "assets/boss_photo.jpg"
-                )
+                boss_photo = "assets/boss_photo.jpg"
+
 
 
                 if os.path.exists(
@@ -465,25 +479,26 @@ if menu == "User Greeting":
                     )
 
 
-                    st.image(
-                        result
-                    )
+                    st.image(result)
 
 
-                    with open(
-                        result,
-                        "rb"
-                    ) as file:
+
+                    with open(result,"rb") as f:
 
 
                         st.download_button(
+
                             "Download Greeting",
-                            file,
+
+                            f,
+
                             file_name=result
+
                         )
 
 
                 else:
+
 
                     st.error(
                         "Boss photo missing"
